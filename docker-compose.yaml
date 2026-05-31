@@ -13,6 +13,11 @@ services:
         max-file: "2"
   redis:
     image: redis:6.2-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
     networks:
       - robot-shop
     logging:
@@ -58,8 +63,16 @@ services:
     build:
       context: cart
     image: ${REPO}/rs-cart:${TAG}
+    deploy:
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 200M
+        reservations:
+          memory: 64M
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
     networks:
       - robot-shop
     healthcheck:
@@ -67,6 +80,8 @@ services:
       interval: 10s
       timeout: 10s
       retries: 3
+      start_period: 15s
+    restart: unless-stopped
     logging:
       <<: *logging
   mysql:
@@ -83,6 +98,13 @@ services:
     build:
       context: shipping
     image: ${REPO}/rs-shipping:${TAG}
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          memory: 256M
     depends_on:
       - mysql
     networks:
@@ -115,6 +137,13 @@ services:
     build:
       context: payment
     image: ${REPO}/rs-payment:${TAG}
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          memory: 128M
     depends_on:
       - rabbitmq
     networks:
@@ -124,6 +153,8 @@ services:
       interval: 10s
       timeout: 10s
       retries: 3
+      start_period: 20s
+    restart: unless-stopped
     # Uncomment to change payment gateway
     #environment:
       #PAYMENT_GATEWAY: "https://www.worldpay.com"
